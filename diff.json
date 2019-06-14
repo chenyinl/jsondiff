@@ -1,0 +1,73 @@
+<?php
+
+include "TreeWalker.php";
+
+$treewalker = new TreeWalker(array(
+"debug"=>true, //true => return the execution time, false => not
+"returntype"=>"jsonstring") //Returntype = ["obj","jsonstring","array"]
+);
+
+$max = 1;
+if(isset($_GET['max'])) $max = $_GET['max'];
+$offset = isset($_GET['offset'])? $_GET['offset']:1000;
+
+
+
+$struct1 = getJsonObject("http://aaa.com/printproducts/productsfeedv2", $max, $offset);
+$struct2 = getJsonObject("http://aaa.com/printproducts/productsfeed",   $max, $offset);
+sortProductOptions($struct1);
+sortProductOptions($struct2);
+
+echo $treewalker->getdiff($struct1, $struct2, false); // false -> with slashs
+
+function getJsonObject($url, $max, $offset)
+{
+    $ch = curl_init(); 
+
+    // set url 
+    $url = $url."?max=".$max."&offset=".$offset;
+    curl_setopt($ch, CURLOPT_URL, $url); 
+
+    //return the transfer as a string 
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1); 
+    curl_setopt($ch, CURLOPT_FRESH_CONNECT, TRUE);
+
+    curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+    'Authorization:aaa'));
+    // $output contains the output string 
+    $output = curl_exec($ch); 
+    $struct = json_decode($output, true);
+    // close curl resource to free up system resources 
+    sortProductOptions($struct1);
+    curl_close($ch);
+    return $struct;
+}
+
+
+function sortProductOptions(&$jsonObj)
+{ 
+    foreach ($jsonObj['entities'] AS &$aProduct){
+        sortByproductOptionGroup($aProduct['product_option_groups']);
+    }
+}
+
+
+function sortByproductOptionGroup(&$product_option_groups)
+{
+    usort($product_option_groups, "cmp");
+    foreach ($product_option_groups AS &$product_option_group){
+        usort($product_option_group['options'], "cmp_option");
+    }
+}
+
+
+function cmp($a, $b)
+{
+    return strcmp($a['product_option_group_uuid'],$b['product_option_group_uuid']);
+}
+
+
+function cmp_option($a, $b)
+{
+    return strcmp($a['option_uuid'],$b['option_uuid']);
+}
